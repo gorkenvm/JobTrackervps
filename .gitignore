@@ -35,8 +35,12 @@ Thumbs.db
 
 # Sensitive / personal data — never commit
 backend/apify_config.json
+backend/settings.json
 backend/cv.md
 backend/sample.txt
+backend/cv_config.json
+backend/cvs/
+backend/preview/
 
 # Claude internal
 .claude/

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { getJobs, uploadCV, getCVStatus, uploadSample, getSampleStatus } from './services/api';
+import { getJobs, listCVs, uploadSample, getSampleStatus, getSettings, saveSettings } from './services/api';
 import JobCard from './components/JobCard';
 import JobDetailPanel from './components/JobDetailPanel';
 import JobForm from './components/JobForm';
 import ApifyModal from './components/ApifyModal';
+import CVModal from './components/CVModal';
 import Toast, { useToast } from './components/Toast';
 import {
     Settings, Plus, Search, Layers, Eye, EyeOff, Folder,
@@ -42,7 +43,7 @@ const DEFAULT_PANEL_WIDTH = 360;
 export default function App() {
     const [jobs, setJobs] = useState([]);
     const [selectedJobId, setSelectedJobId] = useState(null);
-    const [hasCV, setHasCV] = useState(false);
+    const [cvList, setCvList] = useState([]);
     const [hasSample, setHasSample] = useState(false);
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
@@ -50,12 +51,15 @@ export default function App() {
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isApifyOpen, setIsApifyOpen] = useState(false);
+    const [isCVOpen, setIsCVOpen] = useState(false);
     const [showApiKey, setShowApiKey] = useState(false);
 
-    const [provider, setProvider] = useState(localStorage.getItem('ai_provider') || 'Gemini');
-    const [apiKey, setApiKey] = useState(localStorage.getItem('ai_api_key') || '');
-    const [modelName, setModelName] = useState(localStorage.getItem('ai_model_name') || 'gemini-1.5-pro');
-    const [downloadPath, setDownloadPath] = useState(localStorage.getItem('ai_download_path') || '');
+    const [provider, setProvider] = useState('Gemini');
+    const [apiKey, setApiKey] = useState('');
+    const [modelName, setModelName] = useState('gemini-1.5-pro');
+    const [downloadPath, setDownloadPath] = useState('');
+    const [summaryLanguage, setSummaryLanguage] = useState('TR');
+    const [userCode, setUserCode] = useState('');
 
     // Resizable panel
     const [panelWidth, setPanelWidth] = useState(() =>
@@ -104,14 +108,24 @@ export default function App() {
         e.preventDefault();
     };
 
-    useEffect(() => { fetchData(); }, []);
+    useEffect(() => {
+        fetchData();
+        getSettings().then(s => {
+            setProvider(s.provider);
+            setApiKey(s.api_key);
+            setModelName(s.model_name);
+            setDownloadPath(s.download_path);
+            setSummaryLanguage(s.summary_language);
+            setUserCode(s.user_code || '');
+        }).catch(() => {});
+    }, []);
 
     const fetchData = useCallback(async () => {
         try {
             const data = await getJobs();
             setJobs(data);
-            const cvStatus = await getCVStatus();
-            setHasCV(cvStatus.has_cv);
+            const cvs = await listCVs();
+            setCvList(cvs);
             const sampleStatus = await getSampleStatus();
             setHasSample(sampleStatus.has_sample);
         } catch {
@@ -119,17 +133,7 @@ export default function App() {
         }
     }, []);
 
-    const handleCVUpload = async (e) => {
-        if (!e.target.files?.length) return;
-        try {
-            await (await import('./services/api')).uploadCV(e.target.files[0]);
-            setHasCV(true);
-            addToast(t('cvUploaded'), 'success');
-        } catch {
-            addToast(t('cvFailed'), 'error');
-        }
-        e.target.value = '';
-    };
+    const hasCV = cvList.some(c => c.has_file);
 
     const handleSampleUpload = async (e) => {
         if (!e.target.files?.length) return;
@@ -158,20 +162,29 @@ export default function App() {
         if (selectedJobId === jobId) setSelectedJobId(null);
     };
 
-    const handleSaveSettings = () => {
-        localStorage.setItem('ai_provider', provider);
-        localStorage.setItem('ai_api_key', apiKey);
-        localStorage.setItem('ai_model_name', modelName);
-        localStorage.setItem('ai_download_path', downloadPath);
+    const handleSaveSettings = async () => {
+        try {
+            await saveSettings({
+                provider, api_key: apiKey, model_name: modelName,
+                download_path: downloadPath, summary_language: summaryLanguage,
+                user_code: userCode,
+            });
+            addToast(t('settingsSaved'), 'success');
+        } catch {
+            addToast('Ayarlar kaydedilemedi.', 'error');
+        }
         setIsSettingsOpen(false);
-        addToast(t('settingsSaved'), 'success');
     };
 
     let filteredJobs = jobs.filter(j =>
         (j.company || '').toLowerCase().includes(search.toLowerCase()) ||
         (j.title || '').toLowerCase().includes(search.toLowerCase())
     );
-    if (filterStatus) filteredJobs = filteredJobs.filter(j => j.status === filterStatus);
+    if (filterStatus === 'pending') {
+        filteredJobs = filteredJobs.filter(j => j.status === 'Yeni' || j.status === 'Başvuruldu');
+    } else if (filterStatus) {
+        filteredJobs = filteredJobs.filter(j => j.status === filterStatus);
+    }
     if (sortOrder === 'scoreDesc') filteredJobs.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
     else if (sortOrder === 'scoreAsc') filteredJobs.sort((a, b) => (a.score ?? 0) - (b.score ?? 0));
     else filteredJobs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -180,6 +193,10 @@ export default function App() {
     const interviewJobs = jobs.filter(j => j.status === 'Mülakat').length;
     const pendingJobs = jobs.filter(j => j.status === 'Yeni' || j.status === 'Başvuruldu').length;
     const rejectedJobs = jobs.filter(j => j.status === 'Reddedildi').length;
+    const scoredJobs = jobs.filter(j => j.score != null);
+    const avgScore = scoredJobs.length > 0
+        ? Math.round(scoredJobs.reduce((s, j) => s + (j.score || 0), 0) / scoredJobs.length)
+        : null;
 
     const selectedJob = jobs.find(j => j.id === selectedJobId) ?? null;
 
@@ -198,12 +215,11 @@ export default function App() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <label className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer transition-colors ${hasCV ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'}`}>
+                    <button onClick={() => setIsCVOpen(true)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${hasCV ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'}`}>
                         <FileText className="w-3.5 h-3.5" />
-                        {t('uploadCV')}
+                        CV
                         <span className={`w-1.5 h-1.5 rounded-full ${hasCV ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                        <input type="file" accept=".md,.txt" className="absolute inset-0 opacity-0 cursor-pointer w-full" onChange={handleCVUpload} />
-                    </label>
+                    </button>
 
                     <label className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer transition-colors ${hasSample ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'}`}>
                         <FileText className="w-3.5 h-3.5" />
@@ -240,20 +256,34 @@ export default function App() {
                     style={{ width: panelWidth }}
                 >
                     {/* Stats */}
-                    <div className="flex-shrink-0 px-3 pt-3 pb-2 grid grid-cols-4 gap-1.5">
+                    <div className="flex-shrink-0 px-3 pt-3 pb-1 grid grid-cols-4 gap-1.5">
                         {[
-                            { label: t('total'), value: totalJobs, icon: <BarChart3 className="w-3.5 h-3.5" />, color: 'text-indigo-600 bg-indigo-50' },
-                            { label: t('pending'), value: pendingJobs, icon: <Clock className="w-3.5 h-3.5" />, color: 'text-amber-600 bg-amber-50' },
-                            { label: t('interview'), value: interviewJobs, icon: <CheckCircle2 className="w-3.5 h-3.5" />, color: 'text-purple-600 bg-purple-50' },
-                            { label: t('rejected'), value: rejectedJobs, icon: <XCircle className="w-3.5 h-3.5" />, color: 'text-red-500 bg-red-50' },
+                            { label: t('total'), value: totalJobs, icon: <BarChart3 className="w-3.5 h-3.5" />, color: 'text-indigo-600 bg-indigo-50', filter: '' },
+                            { label: t('pending'), value: pendingJobs, icon: <Clock className="w-3.5 h-3.5" />, color: 'text-amber-600 bg-amber-50', filter: 'pending' },
+                            { label: t('interview'), value: interviewJobs, icon: <CheckCircle2 className="w-3.5 h-3.5" />, color: 'text-purple-600 bg-purple-50', filter: 'Mülakat' },
+                            { label: t('rejected'), value: rejectedJobs, icon: <XCircle className="w-3.5 h-3.5" />, color: 'text-red-500 bg-red-50', filter: 'Reddedildi' },
                         ].map(s => (
-                            <div key={s.label} className="bg-white rounded-xl p-2 border border-slate-200 flex flex-col items-center gap-0.5 shadow-sm">
+                            <button
+                                key={s.label}
+                                onClick={() => setFilterStatus(prev => prev === s.filter && s.filter !== '' ? '' : s.filter)}
+                                className={`bg-white rounded-xl p-2 border flex flex-col items-center gap-0.5 shadow-sm transition-all cursor-pointer ${filterStatus === s.filter && s.filter !== '' ? 'border-indigo-400 ring-1 ring-indigo-200 bg-indigo-50' : 'border-slate-200 hover:border-slate-300'}`}
+                            >
                                 <span className={`rounded-lg p-1 ${s.color}`}>{s.icon}</span>
                                 <span className="text-base font-black text-slate-800 leading-none">{s.value}</span>
                                 <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">{s.label}</span>
-                            </div>
+                            </button>
                         ))}
                     </div>
+                    {/* Avg score row */}
+                    {avgScore !== null && (
+                        <div className="flex-shrink-0 mx-3 mb-2 bg-white border border-slate-200 rounded-xl px-3 py-2 flex items-center justify-between shadow-sm">
+                            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Ort. Uyum</span>
+                            <div className="flex items-baseline gap-0.5">
+                                <span className={`text-lg font-black leading-none ${avgScore >= 80 ? 'text-emerald-600' : avgScore >= 60 ? 'text-amber-500' : 'text-red-500'}`}>{avgScore}</span>
+                                <span className="text-[10px] text-slate-300 font-medium">/100</span>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Search + Filter */}
                     <div className="flex-shrink-0 px-3 pb-2 space-y-1.5">
@@ -272,6 +302,7 @@ export default function App() {
                                 <Filter className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 w-3 h-3 pointer-events-none" />
                                 <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="w-full appearance-none bg-white border border-slate-200 rounded-xl py-1.5 pl-6 pr-2 text-[11px] font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer shadow-sm">
                                     <option value="">{t('allStatus')}</option>
+                                    <option value="pending">{t('pending')}</option>
                                     <option value="Yeni">{t('new')}</option>
                                     <option value="Başvuruldu">{t('applied')}</option>
                                     <option value="Mülakat">{t('interview')}</option>
@@ -339,6 +370,8 @@ export default function App() {
                             apiKey={apiKey}
                             modelName={modelName}
                             downloadPath={downloadPath}
+                            userCode={userCode}
+                            cvList={cvList}
                             addToast={addToast}
                         />
                     ) : (
@@ -350,13 +383,26 @@ export default function App() {
             {/* ── Modals ── */}
             {isFormOpen && (
                 <Modal onClose={() => setIsFormOpen(false)}>
-                    <JobForm onJobCreated={handleJobCreated} onClose={() => setIsFormOpen(false)} provider={provider} apiKey={apiKey} modelName={modelName} addToast={addToast} />
+                    <JobForm onJobCreated={handleJobCreated} onClose={() => setIsFormOpen(false)} provider={provider} apiKey={apiKey} modelName={modelName} summaryLanguage={summaryLanguage} addToast={addToast} />
                 </Modal>
             )}
 
             {isApifyOpen && (
                 <Modal onClose={() => setIsApifyOpen(false)} wide>
                     <ApifyModal onClose={() => setIsApifyOpen(false)} addToast={addToast} onJobsRefresh={fetchData} />
+                </Modal>
+            )}
+
+            {isCVOpen && (
+                <Modal onClose={() => setIsCVOpen(false)} extraWide>
+                    <CVModal
+                        onClose={() => setIsCVOpen(false)}
+                        addToast={addToast}
+                        onCVChanged={async () => {
+                            const cvs = await listCVs();
+                            setCvList(cvs);
+                        }}
+                    />
                 </Modal>
             )}
 
@@ -390,6 +436,24 @@ export default function App() {
                                     <Folder className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 w-4 h-4 pointer-events-none" />
                                 </div>
                             </Field>
+                            <Field label="Dosya Adı Kodu">
+                                <input type="text" value={userCode} onChange={e => setUserCode(e.target.value)} placeholder="Örn: vmGorken" className="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+                                <p className="text-xs text-slate-400 mt-1">Motivation_Letter_<span className="font-mono text-indigo-500">{userCode || 'vmGorken'}</span>_CompanyName.pdf</p>
+                                <p className="text-xs text-slate-400">001_CV_<span className="font-mono text-indigo-500">{userCode || 'vmGorken'}</span>_CompanyName.pdf</p>
+                            </Field>
+                            <Field label={t('summaryLang')}>
+                                <div className="flex gap-2">
+                                    {[['TR', '🇹🇷 Türkçe'], ['EN', '🇬🇧 English'], ['DE', '🇩🇪 Deutsch']].map(([code, label]) => (
+                                        <button
+                                            key={code}
+                                            type="button"
+                                            onClick={() => setSummaryLanguage(code)}
+                                            className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-colors ${summaryLanguage === code ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                                        >{label}</button>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-slate-400 mt-1">{t('summaryLangNote')}</p>
+                            </Field>
                             <div className="flex justify-end gap-3 pt-2">
                                 <button onClick={() => setIsSettingsOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900">{t('cancel')}</button>
                                 <button onClick={handleSaveSettings} className="px-5 py-2 text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-colors">{t('save')}</button>
@@ -404,10 +468,11 @@ export default function App() {
     );
 }
 
-function Modal({ children, onClose, wide = false }) {
+function Modal({ children, onClose, wide = false, extraWide = false }) {
+    const sizeClass = extraWide ? 'max-w-3xl' : wide ? 'max-w-xl' : 'max-w-lg';
     return (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <div className={`bg-white rounded-2xl shadow-2xl w-full relative ${wide ? 'max-w-xl' : 'max-w-lg'}`} onClick={e => e.stopPropagation()}>
+            <div className={`bg-white rounded-2xl shadow-2xl w-full relative max-h-[92vh] overflow-y-auto ${sizeClass}`} onClick={e => e.stopPropagation()}>
                 <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-full p-1.5 transition-colors z-10">
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                         <path d="M11 1L1 11M1 1L11 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />

@@ -18,4 +18,6 @@ class Job(Base):
     language_reqs = Column(String, nullable=True)
     language_explanation = Column(Text, nullable=True)
     location = Column(String, nullable=True)
+    score_breakdown = Column(Text, nullable=True)
+    cv_summary = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)

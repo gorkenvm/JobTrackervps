@@ -3,7 +3,7 @@ import { Link, FileText, Loader2, Wand2 } from 'lucide-react';
 import { createJob, apifyFetchSingleUrl } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
 
-export default function JobForm({ onJobCreated, onClose, provider, apiKey, modelName, addToast }) {
+export default function JobForm({ onJobCreated, onClose, provider, apiKey, modelName, summaryLanguage, addToast }) {
     const [link, setLink] = useState('');
     const [description, setDescription] = useState('');
     const [loading, setLoading] = useState(false);
@@ -62,6 +62,7 @@ export default function JobForm({ onJobCreated, onClose, provider, apiKey, model
                 provider,
                 api_key: apiKey,
                 model_name: modelName,
+                summary_language: summaryLanguage || 'TR',
             });
             onJobCreated(newJob);
         } catch (err) {

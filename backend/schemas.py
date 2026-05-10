@@ -2,12 +2,22 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
+class UserSettings(BaseModel):
+    provider: str = "Gemini"
+    api_key: str = ""
+    model_name: str = "gemini-1.5-pro"
+    download_path: str = ""
+    summary_language: str = "TR"
+    user_code: str = ""
+
+
 class JobCreate(BaseModel):
     link: str
     description: str
     provider: str = "Gemini"
     api_key: str = ""
     model_name: str = "gemini-1.5-pro"
+    summary_language: str = "TR"
 
 class JobUpdateStatus(BaseModel):
     status: str
@@ -44,6 +54,8 @@ class Job(BaseModel):
     language_reqs: Optional[str] = None
     language_explanation: Optional[str] = None
     location: Optional[str] = None
+    score_breakdown: Optional[str] = None
+    cv_summary: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -61,6 +73,41 @@ class ExportRequest(BaseModel):
     letter_text: str
     company_name: str
     download_path: str
+    job_id: int = 0
+    user_code: str = ""
+
+class CVExportRequest(BaseModel):
+    job_id: int
+    company_name: str
+    download_path: str
+    user_code: str = ""
 
 class FetchUrlRequest(BaseModel):
     url: str
+
+class CVInfo(BaseModel):
+    id: str
+    name: str
+    filename: str
+    has_file: bool
+    is_active: bool
+
+class CVAddRequest(BaseModel):
+    name: str
+
+class CVRenameRequest(BaseModel):
+    name: str
+
+class CVSummaryRequest(BaseModel):
+    job_id: int
+    cv_id: str = ""
+    language: str = "EN"
+    draft: str = ""
+    provider: str = "Gemini"
+    api_key: str = ""
+    model_name: str = "gemini-1.5-pro"
+
+class CVRecompileRequest(BaseModel):
+    job_id: int
+    cv_id: str = ""
+    summary_text: str

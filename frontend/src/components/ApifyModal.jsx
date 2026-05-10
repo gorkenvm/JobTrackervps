@@ -68,9 +68,7 @@ export default function ApifyModal({ onClose, addToast, onJobsRefresh }) {
         }
         setSaving(true);
         try {
-            const settingsApiKey = localStorage.getItem('ai_api_key') || '';
-            const payload = { ...cfg, default_api_key: settingsApiKey };
-            await saveApifyConfig(payload);
+            await saveApifyConfig(cfg);
             addToast(t('apifySaved'), 'success');
         } catch (err) {
             addToast(`Hata: ${err.response?.data?.detail || err.message}`, 'error');
@@ -113,7 +111,7 @@ export default function ApifyModal({ onClose, addToast, onJobsRefresh }) {
             addToast(t('apifyConfigMissing'), 'error');
             return;
         }
-        try { await saveApifyConfig({ ...cfg, default_api_key: localStorage.getItem('ai_api_key') || '' }); } catch {}
+        try { await saveApifyConfig(cfg); } catch {}
 
         const lastRunBefore = cfg.last_run;
         setFetching(true);
@@ -212,9 +210,7 @@ export default function ApifyModal({ onClose, addToast, onJobsRefresh }) {
                     <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5 text-xs text-blue-700 mb-2">
                         <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                         <span>
-                            API anahtarı <strong>Ayarlar</strong> menüsünden okunur.
-                            Şu an aktif: <strong>{localStorage.getItem('ai_provider') || 'Gemini'}</strong>
-                            {localStorage.getItem('ai_api_key') ? ' ✓ Key mevcut' : ' — ⚠️ Ayarlarda key girilmemiş!'}
+                            API anahtarı <strong>Ayarlar</strong> menüsünden sunucu tarafında yönetilir.
                         </span>
                     </div>
 

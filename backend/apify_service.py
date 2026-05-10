@@ -5,10 +5,11 @@ from datetime import datetime
 from sqlalchemy import or_
 from database import SessionLocal
 import models
+import settings_service
+import cv_service
 from llm_service import analyze_job
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'apify_config.json')
-CV_PATH = os.path.join(os.path.dirname(__file__), 'cv.md')
 
 DEFAULT_CONFIG = {
     "token": "",
@@ -36,13 +37,6 @@ def load_config() -> dict:
 def save_config(config: dict):
     with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
-
-
-def _read_cv() -> str:
-    if os.path.exists(CV_PATH):
-        with open(CV_PATH, 'r', encoding='utf-8') as f:
-            return f.read()
-    return ""
 
 
 def fetch_and_import() -> dict:
@@ -74,10 +68,12 @@ def fetch_and_import() -> dict:
         _update_last_run(config, 0, 0, err)
         return {"error": err, "imported": 0, "skipped": 0, "total": 0}
 
-    cv_text = _read_cv()
-    provider = config.get("default_provider", "Gemini")
-    api_key = config.get("default_api_key", "")
-    model = config.get("default_model", "gemini-1.5-pro")
+    cv_text = cv_service.get_cv_text()
+    user_settings = settings_service.load()
+    provider = config.get("default_provider") or user_settings.get("provider", "Gemini")
+    api_key = config.get("default_api_key") or user_settings.get("api_key", "")
+    model = config.get("default_model") or user_settings.get("model_name", "gemini-1.5-pro")
+    summary_language = user_settings.get("summary_language", "TR")
 
     db = SessionLocal()
     imported = skipped = analysis_errors = 0
@@ -128,6 +124,7 @@ def fetch_and_import() -> dict:
                         provider=provider,
                         api_key=api_key,
                         model_name=model,
+                        summary_language=summary_language,
                     )
                     db_job.title = analysis.get("title") or db_job.title
                     db_job.company = analysis.get("company") or db_job.company
@@ -136,6 +133,9 @@ def fetch_and_import() -> dict:
                     db_job.language_reqs = analysis.get("language_reqs", "")
                     db_job.language_explanation = analysis.get("language_explanation", "")
                     db_job.location = analysis.get("location") or db_job.location
+                    breakdown = analysis.get("score_breakdown")
+                    if breakdown:
+                        db_job.score_breakdown = json.dumps(breakdown, ensure_ascii=False)
                     db.commit()
                 except Exception as e:
                     print(f"LLM analiz hatası (job {db_job.id}): {e}")

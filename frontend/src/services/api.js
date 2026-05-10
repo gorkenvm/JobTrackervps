@@ -68,11 +68,23 @@ export const generateLetter = async (jobId, language, draft, provider, apiKey, m
     return res.data;
 };
 
-export const exportLetter = async (letterText, companyName, downloadPath) => {
+export const exportLetter = async (letterText, companyName, downloadPath, jobId = 0, userCode = "") => {
     const res = await axios.post(`${API_URL}/export/letter`, {
         letter_text: letterText,
         company_name: companyName,
-        download_path: downloadPath
+        download_path: downloadPath,
+        job_id: jobId,
+        user_code: userCode,
+    });
+    return res.data;
+};
+
+export const exportCV = async (jobId, companyName, downloadPath, userCode = "") => {
+    const res = await axios.post(`${API_URL}/export/cv`, {
+        job_id: jobId,
+        company_name: companyName,
+        download_path: downloadPath,
+        user_code: userCode,
     });
     return res.data;
 };
@@ -94,5 +106,71 @@ export const apifyFetchNow = async () => {
 
 export const apifyFetchSingleUrl = async (url) => {
     const res = await axios.post(`${API_URL}/apify/fetch-url`, { url }, { timeout: 360000 });
+    return res.data;
+};
+
+export const listCVs = async () => {
+    const res = await axios.get(`${API_URL}/cv/list`);
+    return res.data;
+};
+
+export const addCV = async (name) => {
+    const res = await axios.post(`${API_URL}/cv/add`, { name });
+    return res.data;
+};
+
+export const uploadCVFile = async (cvId, file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await axios.post(`${API_URL}/cv/${cvId}/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return res.data;
+};
+
+export const renameCV = async (cvId, name) => {
+    const res = await axios.put(`${API_URL}/cv/${cvId}/name`, { name });
+    return res.data;
+};
+
+export const activateCV = async (cvId) => {
+    const res = await axios.put(`${API_URL}/cv/${cvId}/activate`);
+    return res.data;
+};
+
+export const deleteCV = async (cvId) => {
+    const res = await axios.delete(`${API_URL}/cv/${cvId}`);
+    return res.data;
+};
+
+export const recompileCV = async (jobId, cvId, summaryText) => {
+    const res = await axios.post(`${API_URL}/generate/cv-recompile`, {
+        job_id: jobId,
+        cv_id: cvId,
+        summary_text: summaryText,
+    });
+    return res.data;
+};
+
+export const generateCVSummary = async (jobId, cvId, language, draft, provider, apiKey, modelName) => {
+    const res = await axios.post(`${API_URL}/generate/cv-summary`, {
+        job_id: jobId,
+        cv_id: cvId,
+        language,
+        draft,
+        provider,
+        api_key: apiKey,
+        model_name: modelName,
+    });
+    return res.data;
+};
+
+export const getSettings = async () => {
+    const res = await axios.get(`${API_URL}/settings`);
+    return res.data;
+};
+
+export const saveSettings = async (settings) => {
+    const res = await axios.post(`${API_URL}/settings`, settings);
     return res.data;
 };

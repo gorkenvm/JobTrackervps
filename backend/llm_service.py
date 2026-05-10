@@ -32,7 +32,10 @@ def call_llm(prompt: str, provider: str, api_key: str, model_name: str, is_json:
         return response.text
 
 
-def analyze_job(job_desc: str, cv_text: str, link: str = "", provider: str = "Gemini", api_key: str = "", model_name: str = "gemini-1.5-pro") -> dict:
+def analyze_job(job_desc: str, cv_text: str, link: str = "", provider: str = "Gemini", api_key: str = "", model_name: str = "gemini-1.5-pro", summary_language: str = "TR") -> dict:
+    lang_map = {"TR": "Turkish", "EN": "English", "DE": "German"}
+    summary_lang_name = lang_map.get(summary_language, "Turkish")
+
     prompt = f"""
     You are an expert HR recruiter and career assistant.
     Analyze the following job application against the provided CV.
@@ -44,27 +47,37 @@ def analyze_job(job_desc: str, cv_text: str, link: str = "", provider: str = "Ge
     Applicant CV:
     {cv_text}
 
+    CRITICAL LANGUAGE RULE: Write ALL text fields (summary_tr, language_explanation, and every score_breakdown note) in {summary_lang_name}. Do NOT use any other language for these fields.
+
     Return a JSON object with exactly these fields:
 
     - "title": Job title extracted from the description. If unknown, use "Bilinmiyor".
     - "company": Company name extracted from the description. If unknown, use "Bilinmiyor".
-    - "summary_tr": A professional, high-density summary in Turkish (max 400 words) structured with these labeled sections:
+    - "summary_tr": A professional, high-density summary in {summary_lang_name} (max 400 words). Use EXACTLY these labeled sections, each on its own line separated by a newline:
         [Sektör]: Company's industry and domain.
         [Rol]: Core purpose of the position.
         [Beklentiler]: Key responsibilities and required seniority level.
         [Teknoloji]: Main tools, languages, and frameworks required.
         [Güçlü Yönler]: Top 3 strengths from the CV that match this role.
         [Eksikler]: Top 3 gaps or missing requirements relative to this role.
-        Avoid filler words. Focus on hard facts only.
+        Avoid filler words. Focus on hard facts only. Each section MUST start on a new line.
     - "language_reqs": Language requirements in 'DE: [Level] / ENG: [Level]' format (e.g., DE: B2 / ENG: C1). If none stated, return "Belirtilmemiş".
-    - "language_explanation": 1-2 sentences in Turkish explaining how you determined the language levels (e.g., based on keywords like 'sicheres Deutsch', the language of the job ad, or the nature of the role).
+    - "language_explanation": 1-2 sentences in {summary_lang_name} explaining how you determined the language levels.
     - "location": Extracted job location (e.g., Berlin, Remote). If unknown, use "Bilinmiyor".
-    - "score": Compatibility score 0-100 based on weighted evaluation. Do NOT just match keywords — analyze depth of experience.
-        Weighting:
-        - Technical Stack Match (40%): Alignment of tools, languages, frameworks.
-        - Seniority & Experience (30%): Years of experience and responsibility level vs. job requirements.
-        - Industry/Domain Fit (15%): Relevant sector experience.
-        - Education & Languages (15%): Degree and language prerequisites.
+    - "score": Integer 0-100. Compatibility score based on weighted evaluation below. Do NOT just match keywords — analyze depth of experience.
+    - "score_breakdown": Object with per-category integer scores and a 1-sentence note in {summary_lang_name}:
+        {{
+            "technical": {{"score": <integer 0-40>, "max": 40, "note": "<1 sentence in {summary_lang_name}>"}},
+            "seniority": {{"score": <integer 0-30>, "max": 30, "note": "<1 sentence in {summary_lang_name}>"}},
+            "industry":  {{"score": <integer 0-15>, "max": 15, "note": "<1 sentence in {summary_lang_name}>"}},
+            "education": {{"score": <integer 0-15>, "max": 15, "note": "<1 sentence in {summary_lang_name}>"}}
+        }}
+        Weighting rules:
+        - technical (max 40): Alignment of tools, languages, frameworks.
+        - seniority (max 30): Years of experience and responsibility level vs. job requirements.
+        - industry (max 15): Relevant sector experience.
+        - education (max 15): Degree and language prerequisites.
+        The sum of the four scores MUST equal the "score" field exactly.
         Final score must reflect realistic hiring probability. If a mandatory skill (e.g., German for a German-only role) is missing, penalize heavily.
     """
     try:
@@ -82,6 +95,37 @@ def analyze_job(job_desc: str, cv_text: str, link: str = "", provider: str = "Ge
             "location": "Bilinmiyor",
             "score": 0
         }
+
+
+def generate_cv_summary(job_desc: str, cv_plain_text: str, language: str = "EN", draft: str = "", provider: str = "Gemini", api_key: str = "", model_name: str = "gemini-1.5-pro") -> str:
+    lang_name = "English" if language == "EN" else "German"
+    draft_block = f"\nCandidate notes to incorporate: {draft.strip()}" if draft and draft.strip() else ""
+
+    prompt = f"""You are an expert CV writer for the German job market.
+Write a tailored professional profile/summary for this candidate based on the specific job listing.
+
+CRITICAL RULE 1: Write ONLY in {lang_name}. No other language.
+CRITICAL RULE 2: Return ONLY the summary text. No labels, no headers, no JSON, no LaTeX commands, no explanations.
+CRITICAL RULE 3: STRICTLY MAXIMUM 480 CHARACTERS (including the ** markers below). Count carefully. Be concise.
+CRITICAL RULE 4: Reference concrete requirements from the job description. Use real skills from the CV. Do not invent facts.
+CRITICAL RULE 5: Identify the 3 most important keywords in the summary and wrap ONLY those words with **double asterisks** (e.g. **LangGraph**). No other markdown. Exactly 3 bolded keywords.
+{draft_block}
+
+--- JOB DESCRIPTION ---
+{job_desc}
+
+--- CANDIDATE PROFILE (CV plain text, no summary section) ---
+{cv_plain_text}
+
+Output ONLY the summary text with exactly 3 keywords wrapped in **double asterisks**. Under 480 characters total."""
+    try:
+        result = call_llm(prompt, provider, api_key, model_name, is_json=False).strip()
+        if len(result) > 480:
+            result = result[:477] + '...'
+        return result
+    except Exception as e:
+        print(f"Error generating CV summary: {e}")
+        return "Generation failed."
 
 
 def generate_motivation_letter(job_desc: str, cv_text: str, language: str, draft: str, provider: str = "Gemini", api_key: str = "", model_name: str = "gemini-1.5-pro", sample_letter_text: str = "") -> str:

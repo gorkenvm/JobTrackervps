@@ -6,7 +6,7 @@ python-dotenv
 openai
 google-generativeai
 python-docx
-pdfkit
+fpdf2
 python-multipart
 anthropic
 psycopg2-binary
