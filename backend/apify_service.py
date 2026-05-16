@@ -23,6 +23,10 @@ DEFAULT_CONFIG = {
     "last_imported": 0,
     "last_skipped": 0,
     "last_error": None,
+    "filter_keywords": "",
+    "filter_location": "",
+    "filter_date_posted": "",
+    "filter_max_results": 0,
 }
 
 
@@ -48,10 +52,28 @@ def fetch_and_import() -> dict:
     if not token or not task_id:
         return {"error": "Token veya Task ID eksik.", "imported": 0, "skipped": 0, "total": 0}
 
+    # Build optional task input overrides from saved filters
+    task_input = {}
+    kw = config.get("filter_keywords", "").strip()
+    loc = config.get("filter_location", "").strip()
+    date_posted = config.get("filter_date_posted", "").strip()
+    max_results = config.get("filter_max_results", 0)
+    if kw:
+        task_input["searchTerms"] = [k.strip() for k in kw.split(",") if k.strip()]
+    if loc:
+        task_input["location"] = loc
+    if date_posted:
+        task_input["publishedAt"] = date_posted
+    if max_results and int(max_results) > 0:
+        task_input["maxItems"] = int(max_results)
+
     # Run Apify task and collect results (sync, may take a few minutes)
     url = f"https://api.apify.com/v2/actor-tasks/{task_id}/run-sync-get-dataset-items"
     try:
-        resp = requests.get(url, params={"token": token}, timeout=600)
+        if task_input:
+            resp = requests.post(url, params={"token": token}, json=task_input, timeout=600)
+        else:
+            resp = requests.get(url, params={"token": token}, timeout=600)
         resp.raise_for_status()
         items = resp.json()
     except requests.exceptions.Timeout:
@@ -71,9 +93,14 @@ def fetch_and_import() -> dict:
     cv_text = cv_service.get_cv_text()
     user_settings = settings_service.load()
     provider = config.get("default_provider") or user_settings.get("provider", "Gemini")
-    api_key = config.get("default_api_key") or user_settings.get("api_key", "")
+    apify_key = config.get("default_api_key", "").strip()
+    settings_key = user_settings.get("api_key", "").strip()
+    settings_provider = user_settings.get("provider", "Gemini")
+    # Only fall back to settings key if providers match — avoids using Gemini key with OpenAI etc.
+    api_key = apify_key or (settings_key if settings_provider == provider else "")
     model = config.get("default_model") or user_settings.get("model_name", "gemini-1.5-pro")
     summary_language = user_settings.get("summary_language", "TR")
+    print(f"[APIFY] provider={provider}  key={'set' if api_key else 'BOŞ — analiz atlanacak'}  model={model}")
 
     db = SessionLocal()
     imported = skipped = analysis_errors = 0

@@ -68,10 +68,11 @@ export const generateLetter = async (jobId, language, draft, provider, apiKey, m
     return res.data;
 };
 
-export const exportLetter = async (letterText, companyName, downloadPath, jobId = 0, userCode = "") => {
+export const exportLetter = async (letterText, companyName, downloadPath, jobId = 0, userCode = "", jobTitle = "") => {
     const res = await axios.post(`${API_URL}/export/letter`, {
         letter_text: letterText,
         company_name: companyName,
+        job_title: jobTitle,
         download_path: downloadPath,
         job_id: jobId,
         user_code: userCode,
@@ -152,12 +153,13 @@ export const recompileCV = async (jobId, cvId, summaryText) => {
     return res.data;
 };
 
-export const generateCVSummary = async (jobId, cvId, language, draft, provider, apiKey, modelName) => {
+export const generateCVSummary = async (jobId, cvId, language, draft, provider, apiKey, modelName, maxChars = 680) => {
     const res = await axios.post(`${API_URL}/generate/cv-summary`, {
         job_id: jobId,
         cv_id: cvId,
         language,
         draft,
+        max_chars: maxChars,
         provider,
         api_key: apiKey,
         model_name: modelName,

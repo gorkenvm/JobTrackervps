@@ -179,6 +179,56 @@ export default function ApifyModal({ onClose, addToast, onJobsRefresh }) {
                     </Field>
                 </Section>
 
+                {/* ── Filters ── */}
+                <Section title="Filtreler">
+                    <div className="grid grid-cols-2 gap-3">
+                        <Field label="Anahtar Kelimeler">
+                            <input
+                                type="text"
+                                value={cfg.filter_keywords || ''}
+                                onChange={e => set('filter_keywords', e.target.value)}
+                                placeholder="Data Scientist, AI Engineer"
+                                className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                            />
+                            <p className="text-[10px] text-slate-400 mt-1">Virgülle ayır</p>
+                        </Field>
+                        <Field label="Konum">
+                            <input
+                                type="text"
+                                value={cfg.filter_location || ''}
+                                onChange={e => set('filter_location', e.target.value)}
+                                placeholder="Germany, Berlin"
+                                className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                            />
+                        </Field>
+                        <Field label="İlan Tarihi">
+                            <select
+                                value={cfg.filter_date_posted || ''}
+                                onChange={e => set('filter_date_posted', e.target.value)}
+                                className="w-full border border-slate-300 rounded-xl px-2.5 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                            >
+                                <option value="">Task varsayılanı</option>
+                                <option value="r86400">Son 24 saat</option>
+                                <option value="r604800">Son hafta</option>
+                                <option value="r2592000">Son ay</option>
+                            </select>
+                        </Field>
+                        <Field label="Maks. Sonuç">
+                            <input
+                                type="number"
+                                min="0"
+                                value={cfg.filter_max_results || 0}
+                                onChange={e => set('filter_max_results', parseInt(e.target.value) || 0)}
+                                className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                            />
+                            <p className="text-[10px] text-slate-400 mt-1">0 = task varsayılanı</p>
+                        </Field>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                        Dolu alanlar Apify task'a input override olarak gönderilir (boş alanlar task'ın kendi ayarlarını kullanır).
+                    </p>
+                </Section>
+
                 {/* ── Schedule ── */}
                 <Section title={t('apifyScheduleSection')}>
                     <label className="flex items-center gap-3 cursor-pointer">
@@ -206,14 +256,6 @@ export default function ApifyModal({ onClose, addToast, onJobsRefresh }) {
 
                 {/* ── LLM Settings ── */}
                 <Section title={t('apifyLlmSection')}>
-                    {/* API key info banner */}
-                    <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5 text-xs text-blue-700 mb-2">
-                        <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        <span>
-                            API anahtarı <strong>Ayarlar</strong> menüsünden sunucu tarafında yönetilir.
-                        </span>
-                    </div>
-
                     <div className="grid grid-cols-2 gap-3">
                         <Field label="Provider">
                             <select
@@ -239,8 +281,17 @@ export default function ApifyModal({ onClose, addToast, onJobsRefresh }) {
                             </select>
                         </Field>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">
-                        API anahtarı olmadan Apify işleri analiz edilmeden (sadece ham veri olarak) eklenir.
+                    <Field label="API Key">
+                        <input
+                            type="password"
+                            value={cfg.default_api_key || ''}
+                            onChange={e => set('default_api_key', e.target.value)}
+                            placeholder={`${cfg.default_provider} API anahtarı`}
+                            className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                    </Field>
+                    <p className="text-xs text-slate-400">
+                        Boş bırakılırsa Ayarlar menüsündeki API anahtarı kullanılır. Analiz istemiyorsan boş bırak.
                     </p>
                 </Section>
 

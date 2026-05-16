@@ -2,6 +2,7 @@ import json
 import os
 import re
 import shutil
+import pdfplumber
 
 _BASE = os.path.dirname(os.path.abspath(__file__))
 CV_DIR = os.path.join(_BASE, "cvs")
@@ -68,7 +69,6 @@ def get_cv_text(cv_id: str = None) -> str:
         return ""
     if fpath.endswith(".pdf"):
         try:
-            import pdfplumber
             with pdfplumber.open(fpath) as pdf:
                 return "\n".join(page.extract_text() or "" for page in pdf.pages)
         except ImportError:
@@ -170,14 +170,17 @@ _SUMMARY_BLOCK = (
 
 
 def _strip_latex(text: str) -> str:
-    text = re.sub(r'%[^\n]*', '', text)
-    text = re.sub(r'\\begin\{[^}]+\}', '', text)
-    text = re.sub(r'\\end\{[^}]+\}', '', text)
-    text = re.sub(r'\\(?:textbf|textit|emph|underline|mbox|text)\{([^}]*)\}', r'\1', text)
-    text = re.sub(r'\\href\{[^}]*\}\{([^}]*)\}', r'\1', text)
-    text = re.sub(r'\\[a-zA-Z]+\*?\{[^}]*\}', '', text)
-    text = re.sub(r'\\[a-zA-Z]+\*?', ' ', text)
-    text = re.sub(r'[{}&$\\|]', ' ', text)
+    text = re.sub(r'%[^\n]*', '', text)                                          # comments
+    text = re.sub(r'\\(?:newcommand|renewcommand|def)\s*\{?\\?\w+\}?[^\n]*', '', text)  # definitions
+    text = re.sub(r'\\begin\{[^}]+\}(?:\[[^\]]*\])?', '', text)                  # \begin{env}[opt]
+    text = re.sub(r'\\end\{[^}]+\}', '', text)                                   # \end{env}
+    text = re.sub(r'\\(?:textbf|textit|emph|underline|mbox|text)\{([^}]*)\}', r'\1', text)  # formatting → content
+    text = re.sub(r'\\href\{[^}]*\}\{([^}]*)\}', r'\1', text)                   # \href{url}{text} → text
+    text = re.sub(r'\\[a-zA-Z]+\*?(?:\[[^\]]*\])*\{[^}]*\}', '', text)          # \cmd[opt]{arg}
+    text = re.sub(r'\\[a-zA-Z]+\*?(?:\[[^\]]*\])+', '', text)                   # \cmd[opt]
+    text = re.sub(r'\\[a-zA-Z]+\*?', ' ', text)                                  # bare \cmd
+    text = re.sub(r'\[[^\]]*\]', '', text)                                        # leftover [...]
+    text = re.sub(r'[{}&$\\|#]', ' ', text)                                      # special chars
     text = re.sub(r'[ \t]{2,}', ' ', text)
     text = re.sub(r'\n{3,}', '\n\n', text)
     return text.strip()
@@ -261,11 +264,17 @@ def normalize_latex_cv(tex_content: str) -> str:
     return tex
 
 
+def _extract_document_body(tex: str) -> str:
+    """Return only the content between \\begin{document} and \\end{document}."""
+    m = re.search(r'\\begin\{document\}(.*?)(?:\\end\{document\}|$)', tex, re.DOTALL)
+    return m.group(1) if m else tex
+
+
 def parse_latex_cv(tex_content: str):
     """Returns (summary_text, cv_without_summary, cv_plain_text).
 
     Always normalizes the CV to \\def\\mysummary{} first.
-    The AI receives only cv_plain_text (LaTeX stripped) — never raw LaTeX.
+    The AI receives only cv_plain_text (LaTeX stripped, document body only) — never raw LaTeX.
     The injection point is always \\def\\mysummary{[PLACEHOLDER]}.
     """
     tex = normalize_latex_cv(tex_content)
@@ -275,10 +284,8 @@ def parse_latex_cv(tex_content: str):
         summary_text = _strip_latex(tex[s:e].strip())
         cv_without_summary = tex[:s] + '[PLACEHOLDER]' + tex[e:]
         no_summary = tex[:s] + tex[e:]
-        return summary_text, cv_without_summary, _strip_latex(no_summary)
-    return '', tex, _strip_latex(tex)
-
-    return '', tex_content, _strip_latex(tex_content)
+        return summary_text, cv_without_summary, _strip_latex(_extract_document_body(no_summary))
+    return '', tex, _strip_latex(_extract_document_body(tex))
 
 
 def get_cv_path(cv_id: str = None) -> str:

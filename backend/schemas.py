@@ -38,6 +38,10 @@ class ApifyConfig(BaseModel):
     last_imported: int = 0
     last_skipped: int = 0
     last_error: Optional[str] = None
+    filter_keywords: str = ""
+    filter_location: str = ""
+    filter_date_posted: str = ""
+    filter_max_results: int = 0
 
 
 class Job(BaseModel):
@@ -68,10 +72,12 @@ class LetterRequest(BaseModel):
     provider: str = "Gemini"
     api_key: str = ""
     model_name: str = "gemini-1.5-pro"
+    company_research: str = ""
 
 class ExportRequest(BaseModel):
     letter_text: str
     company_name: str
+    job_title: str = ""
     download_path: str
     job_id: int = 0
     user_code: str = ""
@@ -106,6 +112,7 @@ class CVSummaryRequest(BaseModel):
     provider: str = "Gemini"
     api_key: str = ""
     model_name: str = "gemini-1.5-pro"
+    max_chars: int = 680
 
 class CVRecompileRequest(BaseModel):
     job_id: int

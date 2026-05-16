@@ -100,6 +100,123 @@ def _apply_bold(text: str) -> str:
     return _MD_BOLD_RE.sub(r'\\textbf{\1}', text)
 
 
+_LETTER_TEX_TEMPLATE = r"""\documentclass[letterpaper,10pt]{article}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{fontawesome}
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage{ragged2e}
+
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+
+\urlstyle{same}
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+\begin{document}
+
+%-----------HEADING-----------
+\begin{center}
+    \textbf{\Huge \scshape VEYSEL MURAT GORKEN} \\ \vspace{5pt}
+    \small
+    \faMapMarker\ Dortmund, Germany (open to relocation) $|$ Work authorized  \\ \vspace{2pt}
+    \textcolor{blue}{\faLinkedin} \href{https://www.linkedin.com/in/vmgorken/}{vmgorken} $|$
+    \textcolor{blue}{\faGithub} \href{https://github.com/gorkenvm}{gorkenvm} $|$
+    \faPhone\ +49 151 253 20930 $|$
+    gorkenvm@gmail.com
+\end{center}
+
+\vspace{20pt}
+
+%-----------RECIPIENT-----------
+\begin{flushleft}
+    \textbf{Date:} \today \\
+    \vspace{10pt}
+    \textbf{To:} Hiring Team \\
+    %%COMPANY%%
+\end{flushleft}
+
+\vspace{15pt}
+
+%-----------SUBJECT-----------
+\textbf{Re:} %%POSITION%% --- Application
+
+\vspace{15pt}
+
+%-----------BODY-----------
+\justify
+%%BODY%%
+
+\end{document}
+"""
+
+
+def _build_letter_body_tex(letter_text: str) -> str:
+    """Convert plain-text motivation letter paragraphs to LaTeX body content."""
+    blocks = [b.strip() for b in re.split(r'\n\s*\n', letter_text.strip()) if b.strip()]
+    closing_kws = ('best regards', 'mit freundlichen', 'sincerely', 'yours sincerely')
+    parts = []
+    for i, block in enumerate(blocks):
+        is_closing = any(block.lower().startswith(kw) for kw in closing_kws)
+        if is_closing:
+            lines = [_escape_latex(ln.strip()) for ln in block.split('\n') if ln.strip()]
+            parts.append(r'\vspace{20pt}' + '\n' + ' \\\\\n'.join(lines))
+        elif i == 0:
+            parts.append(_escape_latex(block.replace('\n', ' ')))
+        else:
+            parts.append(r'\vspace{10pt}' + '\n' + _escape_latex(block.replace('\n', ' ')))
+    return '\n\n'.join(parts)
+
+
+def _build_motivation_letter_tex(letter_text: str, company: str, position: str) -> str:
+    """Inject plain-text letter into the fixed LaTeX motivation letter template."""
+    tex = _LETTER_TEX_TEMPLATE
+    tex = tex.replace('%%COMPANY%%', _escape_latex(company))
+    tex = tex.replace('%%POSITION%%', _escape_latex(position))
+    tex = tex.replace('%%BODY%%', _build_letter_body_tex(letter_text))
+    return tex
+
+
+def _compile_latex_to(tex_content: str, output_path: str) -> bool:
+    """Compile LaTeX content to PDF and save to output_path. Returns True on success."""
+    cmd = _pdflatex_cmd()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tex_path = os.path.join(tmpdir, "doc.tex")
+        with open(tex_path, "w", encoding="utf-8") as f:
+            f.write(tex_content)
+        try:
+            result = subprocess.run(
+                [cmd, "-interaction=nonstopmode", "doc.tex"],
+                cwd=tmpdir, capture_output=True, timeout=60, check=False
+            )
+            pdf_src = os.path.join(tmpdir, "doc.pdf")
+            if os.path.exists(pdf_src):
+                shutil.copy2(pdf_src, output_path)
+                return True
+            log = result.stdout.decode("utf-8", errors="replace")[-800:]
+            print(f"pdflatex output:\n{log}")
+        except FileNotFoundError:
+            print(f"pdflatex not found (tried: {cmd})")
+        except subprocess.TimeoutExpired:
+            print("pdflatex timeout (60s)")
+        except Exception as e:
+            print(f"Compile error: {e}")
+    return False
+
+
 def _pdflatex_cmd() -> str:
     import shutil as _shutil
     if _shutil.which("pdflatex"):
@@ -328,11 +445,6 @@ def generate_letter(req: schemas.LetterRequest, db: Session = Depends(get_db)):
     if not cv_content:
         raise HTTPException(status_code=400, detail="Please upload a CV first")
 
-    sample_content = ""
-    if os.path.exists(SAMPLE_PATH):
-        with open(SAMPLE_PATH, "r", encoding="utf-8") as f:
-            sample_content = f.read()
-
     letter_text = generate_motivation_letter(
         job_desc=db_job.description,
         cv_text=cv_content,
@@ -341,7 +453,7 @@ def generate_letter(req: schemas.LetterRequest, db: Session = Depends(get_db)):
         provider=req.provider,
         api_key=req.api_key,
         model_name=req.model_name,
-        sample_letter_text=sample_content,
+        company_research=req.company_research,
     )
 
     db_job.motivation_letter = letter_text
@@ -378,6 +490,7 @@ def generate_cv_summary_endpoint(req: schemas.CVSummaryRequest, db: Session = De
         provider=req.provider,
         api_key=req.api_key,
         model_name=req.model_name,
+        max_chars=req.max_chars,
     )
 
     pdf_url = None
@@ -440,7 +553,10 @@ def export_letter(req: schemas.ExportRequest):
     filename = f"Motivation_Letter_{user_part}_{company_part}.pdf"
     full_path = os.path.join(req.download_path, filename)
     try:
-        _save_text_as_pdf(req.letter_text, full_path)
+        tex = _build_motivation_letter_tex(req.letter_text, req.company_name, req.job_title or req.company_name)
+        ok = _compile_latex_to(tex, full_path)
+        if not ok:
+            _save_text_as_pdf(req.letter_text, full_path)
         return {"saved_path": full_path}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save PDF: {e}")

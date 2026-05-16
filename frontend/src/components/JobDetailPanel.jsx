@@ -142,6 +142,8 @@ export default function JobDetailPanel({
     const [cvGenerating, setCvGenerating] = useState(false);
     const [cvCompiling, setCvCompiling] = useState(false);
     const [cvExporting, setCvExporting] = useState(false);
+    const [cvMaxChars, setCvMaxChars] = useState(680);
+    const [cvMaxCharsInput, setCvMaxCharsInput] = useState('680');
     const [cvCopied, setCvCopied] = useState(false);
 
     useEffect(() => { setLocalModel(modelName); }, [modelName]);
@@ -193,7 +195,7 @@ export default function JobDetailPanel({
         setCvFullText('');
         setPdfUrl('');
         try {
-            const res = await generateCVSummary(job.id, selectedCvId, language, draft, provider, apiKey, localModel);
+            const res = await generateCVSummary(job.id, selectedCvId, language, draft, provider, apiKey, localModel, cvMaxChars);
             setCvSummary(res.summary);
             setCvFullText(res.full_cv);
             if (res.pdf_url) setPdfUrl(`http://localhost:8000${res.pdf_url}?t=${Date.now()}`);
@@ -208,7 +210,7 @@ export default function JobDetailPanel({
         if (!letter.trim()) return;
         setExporting(true);
         try {
-            const res = await exportLetter(letter, job.company, downloadPath, job.id, userCode);
+            const res = await exportLetter(letter, job.company, downloadPath, job.id, userCode, job.title);
             addToast(`${t('letterSaved')}${res.saved_path}`, 'success');
         } catch (err) {
             addToast(`${t('downloadError')}${err.response?.data?.detail || err.message}`, 'error');
@@ -461,7 +463,7 @@ export default function JobDetailPanel({
                             <div className="flex items-start gap-2.5 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 mb-4 text-xs text-indigo-700">
                                 <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                                 <span>
-                                    LaTeX CV'nizdeki özet bölümü otomatik tespit edilir. AI yalnızca summary metnini üretir (max 480 karakter), <code className="font-mono text-indigo-800">.tex</code> derlenir ve PDF önizlemesi gösterilir.
+                                    LaTeX CV'nizdeki özet bölümü otomatik tespit edilir. AI yalnızca summary metnini üretir (max {cvMaxChars} karakter), <code className="font-mono text-indigo-800">.tex</code> derlenir ve PDF önizlemesi gösterilir.
                                 </span>
                             </div>
                         )}
@@ -478,6 +480,38 @@ export default function JobDetailPanel({
                             onChange={e => setDraft(e.target.value)}
                             className="w-full border border-slate-200 rounded-xl p-3.5 text-sm text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none mb-4 transition-shadow placeholder:text-slate-400 bg-white"
                         />
+
+                        {/* ── CV char limit selector ── */}
+                        {studioMode === 'cv' && (
+                            <div className="flex items-center gap-2 mb-3">
+                                <span className="text-xs text-slate-500 shrink-0">Karakter limiti:</span>
+                                <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs font-mono">
+                                    {[480, 580, 680].map(n => (
+                                        <button
+                                            key={n}
+                                            onClick={() => { setCvMaxChars(n); setCvMaxCharsInput(String(n)); }}
+                                            className={`px-3 py-1.5 transition-colors ${cvMaxChars === n ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+                                        >{n}</button>
+                                    ))}
+                                </div>
+                                <input
+                                    type="number"
+                                    value={cvMaxCharsInput}
+                                    onChange={e => {
+                                        setCvMaxCharsInput(e.target.value);
+                                        const v = parseInt(e.target.value);
+                                        if (!isNaN(v) && v >= 200 && v <= 1500) setCvMaxChars(v);
+                                    }}
+                                    onBlur={() => {
+                                        const v = parseInt(cvMaxCharsInput);
+                                        const clamped = isNaN(v) ? 680 : Math.max(200, Math.min(1500, v));
+                                        setCvMaxChars(clamped);
+                                        setCvMaxCharsInput(String(clamped));
+                                    }}
+                                    className="w-16 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-mono text-slate-700 text-center focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                />
+                            </div>
+                        )}
 
                         {/* ── Generate button ── */}
                         <button
@@ -550,8 +584,8 @@ export default function JobDetailPanel({
                                         placeholder="Özet metni burada görünecek..."
                                     />
                                     <div className="flex items-center justify-between mt-2">
-                                        <span className={`text-[9px] font-mono ${cvSummary.length > 480 ? 'text-red-500' : 'text-indigo-300'}`}>
-                                            {cvSummary.length}/480
+                                        <span className={`text-[9px] font-mono ${cvSummary.length > cvMaxChars ? 'text-red-500' : 'text-indigo-300'}`}>
+                                            {cvSummary.length}/{cvMaxChars}
                                         </span>
                                         {isLatex && (
                                             <button
