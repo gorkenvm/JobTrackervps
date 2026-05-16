@@ -92,13 +92,16 @@ def fetch_and_import() -> dict:
 
     cv_text = cv_service.get_cv_text()
     user_settings = settings_service.load()
-    provider = config.get("default_provider") or user_settings.get("provider", "Gemini")
+    apify_provider = config.get("default_provider", "").strip()
     apify_key = config.get("default_api_key", "").strip()
-    settings_key = user_settings.get("api_key", "").strip()
-    settings_provider = user_settings.get("provider", "Gemini")
-    # Only fall back to settings key if providers match — avoids using Gemini key with OpenAI etc.
-    api_key = apify_key or (settings_key if settings_provider == provider else "")
-    model = config.get("default_model") or user_settings.get("model_name", "gemini-1.5-pro")
+    # Use Apify-specific provider+key only when BOTH are explicitly set; otherwise use main Settings
+    if apify_provider and apify_key:
+        provider = apify_provider
+        api_key = apify_key
+    else:
+        provider = user_settings.get("provider", "Gemini")
+        api_key = user_settings.get("api_key", "")
+    model = config.get("default_model", "").strip() or user_settings.get("model_name", "gemini-1.5-pro")
     summary_language = user_settings.get("summary_language", "TR")
     print(f"[APIFY] provider={provider}  key={'set' if api_key else 'BOŞ — analiz atlanacak'}  model={model}")
 

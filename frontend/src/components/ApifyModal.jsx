@@ -291,7 +291,7 @@ export default function ApifyModal({ onClose, addToast, onJobsRefresh }) {
                         />
                     </Field>
                     <p className="text-xs text-slate-400">
-                        Boş bırakılırsa Ayarlar menüsündeki API anahtarı kullanılır. Analiz istemiyorsan boş bırak.
+                        Provider <strong>ve</strong> API Key ikisi birden girilirse Apify'ye özel kullanılır. Biri boşsa Ayarlar menüsündeki provider+key otomatik kullanılır.
                     </p>
                 </Section>
 
