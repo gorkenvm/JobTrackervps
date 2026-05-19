@@ -118,3 +118,14 @@ class CVRecompileRequest(BaseModel):
     job_id: int
     cv_id: str = ""
     summary_text: str
+
+class BothRequest(BaseModel):
+    job_id: int
+    cv_id: str = ""
+    language: str = "EN"
+    draft: str = ""
+    provider: str = "Gemini"
+    api_key: str = ""
+    model_name: str = "gemini-1.5-pro"
+    max_chars: int = 680
+    company_research: str = ""

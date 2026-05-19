@@ -16,7 +16,7 @@ import apify_service
 import settings_service
 import cv_service
 from database import engine, get_db
-from llm_service import analyze_job, generate_motivation_letter, generate_cv_summary
+from llm_service import analyze_job, generate_motivation_letter, generate_cv_summary, generate_both
 from fpdf import FPDF
 import re
 
@@ -340,6 +340,39 @@ def get_jobs(db: Session = Depends(get_db)):
     return db.query(models.Job).order_by(models.Job.created_at.desc()).all()
 
 
+@app.post("/jobs/{job_id}/analyze", response_model=schemas.Job)
+def reanalyze_job(job_id: int, db: Session = Depends(get_db)):
+    db_job = db.query(models.Job).filter(models.Job.id == job_id).first()
+    if not db_job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if not db_job.description:
+        raise HTTPException(status_code=400, detail="İlanda açıklama yok, analiz yapılamaz.")
+    user_settings = settings_service.load()
+    cv_content = cv_service.get_cv_text()
+    analysis = analyze_job(
+        job_desc=db_job.description,
+        cv_text=cv_content,
+        link=db_job.link or "",
+        provider=user_settings.get("provider", "Gemini"),
+        api_key=user_settings.get("api_key", ""),
+        model_name=user_settings.get("model_name", "gemini-1.5-pro"),
+        summary_language=user_settings.get("summary_language", "TR"),
+    )
+    db_job.title = analysis.get("title") or db_job.title
+    db_job.company = analysis.get("company") or db_job.company
+    db_job.score = analysis.get("score", 0)
+    db_job.summary_tr = analysis.get("summary_tr", "")
+    db_job.language_reqs = analysis.get("language_reqs", "")
+    db_job.language_explanation = analysis.get("language_explanation", "")
+    db_job.location = analysis.get("location") or db_job.location
+    breakdown = analysis.get("score_breakdown")
+    if breakdown:
+        db_job.score_breakdown = json.dumps(breakdown, ensure_ascii=False)
+    db.commit()
+    db.refresh(db_job)
+    return db_job
+
+
 @app.delete("/jobs/{job_id}")
 def delete_job(job_id: int, db: Session = Depends(get_db)):
     db_job = db.query(models.Job).filter(models.Job.id == job_id).first()
@@ -460,6 +493,61 @@ def generate_letter(req: schemas.LetterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_job)
     return {"letter": letter_text}
+
+
+@app.post("/generate/both")
+def generate_both_endpoint(req: schemas.BothRequest, db: Session = Depends(get_db)):
+    db_job = db.query(models.Job).filter(models.Job.id == req.job_id).first()
+    if not db_job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    cv_path = cv_service.get_cv_path(req.cv_id if req.cv_id else None)
+    if not cv_path or not os.path.exists(cv_path):
+        raise HTTPException(status_code=400, detail="CV bulunamadı. Lütfen önce bir CV yükleyin.")
+
+    cv_without_summary = None
+    if cv_path.endswith(".tex"):
+        with open(cv_path, "r", encoding="utf-8", errors="replace") as f:
+            tex_content = f.read()
+        _, cv_without_summary, cv_plain_text = cv_service.parse_latex_cv(tex_content)
+    else:
+        cv_plain_text = cv_service.get_cv_text(req.cv_id if req.cv_id else None)
+        if not cv_plain_text:
+            raise HTTPException(status_code=400, detail="CV bulunamadı. Lütfen önce bir CV yükleyin.")
+
+    cv_text = cv_service.get_cv_text(req.cv_id if req.cv_id else None)
+
+    result = generate_both(
+        job_desc=db_job.description or "",
+        cv_plain_text=cv_plain_text,
+        cv_text=cv_text,
+        language=req.language,
+        draft=req.draft,
+        max_chars=req.max_chars,
+        company_research=req.company_research,
+        provider=req.provider,
+        api_key=req.api_key,
+        model_name=req.model_name,
+    )
+
+    summary = result.get("summary", "")
+    letter = result.get("letter", "")
+
+    pdf_url = None
+    if summary and cv_without_summary and "[PLACEHOLDER]" in cv_without_summary:
+        full_cv = cv_without_summary.replace("[PLACEHOLDER]", _apply_bold(_escape_latex(summary)), 1)
+        compiled = _compile_latex(full_cv, req.job_id)
+        if compiled:
+            pdf_url = f"/cv/preview/{req.job_id}"
+    else:
+        full_cv = cv_plain_text
+
+    db_job.cv_summary = summary
+    db_job.motivation_letter = letter
+    db.commit()
+    db.refresh(db_job)
+
+    return {"summary": summary, "letter": letter, "full_cv": full_cv, "pdf_url": pdf_url}
 
 
 @app.post("/generate/cv-summary")

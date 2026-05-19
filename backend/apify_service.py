@@ -52,28 +52,61 @@ def fetch_and_import() -> dict:
     if not token or not task_id:
         return {"error": "Token veya Task ID eksik.", "imported": 0, "skipped": 0, "total": 0}
 
-    # Build optional task input overrides from saved filters
-    task_input = {}
     kw = config.get("filter_keywords", "").strip()
     loc = config.get("filter_location", "").strip()
     date_posted = config.get("filter_date_posted", "").strip()
     max_results = config.get("filter_max_results", 0)
-    if kw:
-        task_input["searchTerms"] = [k.strip() for k in kw.split(",") if k.strip()]
-    if loc:
-        task_input["location"] = loc
-    if date_posted:
-        task_input["publishedAt"] = date_posted
-    if max_results and int(max_results) > 0:
-        task_input["maxItems"] = int(max_results)
 
-    # Run Apify task and collect results (sync, may take a few minutes)
-    url = f"https://api.apify.com/v2/actor-tasks/{task_id}/run-sync-get-dataset-items"
+    # Resolve actor ID + saved task input (enables direct actor call with full input control)
+    act_id = ""
+    saved_input = {}
     try:
-        if task_input:
-            resp = requests.post(url, params={"token": token}, json=task_input, timeout=600)
+        td = requests.get(
+            f"https://api.apify.com/v2/actor-tasks/{task_id}",
+            params={"token": token},
+            timeout=30,
+        )
+        td.raise_for_status()
+        task_data = td.json().get("data", {})
+        act_id = task_data.get("actId", "")
+        saved_input = dict(task_data.get("input") or {})
+        print(f"[APIFY] Task çözümlendi: actId={act_id}  saved_input keys={list(saved_input.keys())}")
+    except Exception as e:
+        print(f"[APIFY] Task detayı alınamadı ({e}), task endpoint'e fallback.")
+
+    # Build overrides — detect which field name the actor uses for max results
+    overrides = {}
+    if kw:
+        overrides["searchTerms"] = [k.strip() for k in kw.split(",") if k.strip()]
+    if loc:
+        overrides["location"] = loc
+    if date_posted:
+        overrides["publishedAt"] = date_posted
+    if max_results and int(max_results) > 0:
+        n = int(max_results)
+        for field in ("maxItems", "count", "resultsLimit", "limit", "total"):
+            if field in saved_input:
+                overrides[field] = n
+                print(f"[APIFY] Max sonuç: {field}={n} (task input'tan tespit edildi)")
+                break
         else:
-            resp = requests.get(url, params={"token": token}, timeout=600)
+            overrides["maxItems"] = n
+            print(f"[APIFY] Max sonuç: maxItems={n} (varsayılan)")
+
+    # Run and collect results
+    try:
+        if act_id:
+            # Call actor directly with merged input — full control over all fields
+            final_input = {**saved_input, **overrides}
+            run_url = f"https://api.apify.com/v2/acts/{act_id}/run-sync-get-dataset-items"
+            print(f"[APIFY] Aktör doğrudan çağrılıyor, input={list(final_input.keys())}")
+            resp = requests.post(run_url, params={"token": token}, json=final_input, timeout=600)
+        elif overrides:
+            run_url = f"https://api.apify.com/v2/actor-tasks/{task_id}/run-sync-get-dataset-items"
+            resp = requests.post(run_url, params={"token": token}, json=overrides, timeout=600)
+        else:
+            run_url = f"https://api.apify.com/v2/actor-tasks/{task_id}/run-sync-get-dataset-items"
+            resp = requests.get(run_url, params={"token": token}, timeout=600)
         resp.raise_for_status()
         items = resp.json()
     except requests.exceptions.Timeout:
@@ -107,11 +140,14 @@ def fetch_and_import() -> dict:
 
     db = SessionLocal()
     imported = skipped = analysis_errors = 0
+    print(f"[APIFY] Toplam {len(items)} item işlenecek.")
 
     try:
-        for item in items:
+        for idx, item in enumerate(items):
             apify_id = str(item.get("id") or item.get("jobId") or "").strip() or None
-            link = str(item.get("url") or item.get("applyUrl") or "").strip() or None
+            link = str(item.get("url") or item.get("apifyUrl") or item.get("applyUrl") or "").strip() or None
+            title_raw = str(item.get("title") or "?").strip()
+            print(f"[APIFY] [{idx+1}/{len(items)}] '{title_raw}'  apify_id={apify_id}  link={link}")
 
             # Duplicate check by apify_id OR link
             filters = []
@@ -123,6 +159,7 @@ def fetch_and_import() -> dict:
             if filters:
                 exists = db.query(models.Job).filter(or_(*filters)).first()
                 if exists:
+                    print(f"[APIFY]   → DUPLICATE (db id={exists.id}), atlanıyor.")
                     skipped += 1
                     continue
 
@@ -130,6 +167,7 @@ def fetch_and_import() -> dict:
             title = str(item.get("title") or "Bilinmiyor").strip()
             company = str(item.get("companyName") or "Bilinmiyor").strip()
             location = str(item.get("location") or "").strip()
+            print(f"[APIFY]   → YENİ iş: company={company}  desc_len={len(description)}")
 
             db_job = models.Job(
                 apify_id=apify_id,
@@ -143,9 +181,15 @@ def fetch_and_import() -> dict:
             db.add(db_job)
             db.commit()
             db.refresh(db_job)
+            print(f"[APIFY]   → DB'ye eklendi id={db_job.id}")
 
             # AI analysis (only if description + api_key available)
-            if description and api_key:
+            if not description:
+                print(f"[APIFY]   → Açıklama YOK, analiz atlanıyor.")
+            elif not api_key:
+                print(f"[APIFY]   → API key YOK, analiz atlanıyor.")
+            else:
+                print(f"[APIFY]   → analyze_job çağrılıyor (provider={provider}, model={model}) ...")
                 try:
                     analysis = analyze_job(
                         job_desc=description,
@@ -156,6 +200,7 @@ def fetch_and_import() -> dict:
                         model_name=model,
                         summary_language=summary_language,
                     )
+                    print(f"[APIFY]   → Analiz döndü: score={analysis.get('score')}  keys={list(analysis.keys())}")
                     db_job.title = analysis.get("title") or db_job.title
                     db_job.company = analysis.get("company") or db_job.company
                     db_job.score = analysis.get("score", 0)
@@ -167,13 +212,17 @@ def fetch_and_import() -> dict:
                     if breakdown:
                         db_job.score_breakdown = json.dumps(breakdown, ensure_ascii=False)
                     db.commit()
+                    print(f"[APIFY]   → DB güncellendi (score={db_job.score}).")
                 except Exception as e:
-                    print(f"LLM analiz hatası (job {db_job.id}): {e}")
+                    import traceback
+                    print(f"[APIFY]   → LLM analiz hatası (job {db_job.id}): {e}")
+                    traceback.print_exc()
                     analysis_errors += 1
 
             imported += 1
     finally:
         db.close()
+    print(f"[APIFY] Bitti: imported={imported}  skipped={skipped}  analysis_errors={analysis_errors}")
 
     _update_last_run(config, imported, skipped, None)
     return {

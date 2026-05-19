@@ -167,6 +167,26 @@ export const generateCVSummary = async (jobId, cvId, language, draft, provider, 
     return res.data;
 };
 
+export const generateBoth = async (jobId, cvId, language, draft, provider, apiKey, modelName, maxChars = 680, companyResearch = "") => {
+    const res = await axios.post(`${API_URL}/generate/both`, {
+        job_id: jobId,
+        cv_id: cvId,
+        language,
+        draft,
+        max_chars: maxChars,
+        provider,
+        api_key: apiKey,
+        model_name: modelName,
+        company_research: companyResearch,
+    }, { timeout: 180000 });
+    return res.data;
+};
+
+export const reanalyzeJob = async (jobId) => {
+    const res = await axios.post(`${API_URL}/jobs/${jobId}/analyze`, {}, { timeout: 120000 });
+    return res.data;
+};
+
 export const getSettings = async () => {
     const res = await axios.get(`${API_URL}/settings`);
     return res.data;

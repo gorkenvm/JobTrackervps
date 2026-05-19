@@ -116,11 +116,12 @@ Write a single tailored "Professional Summary" block for the top of this candida
 
 # HOW TO THINK (do this silently, do NOT output your reasoning)
 1. Extract the 5–8 most load-bearing requirements from the job description: must-have tech stack, seniority signal, domain, industry jargon, and any German-market signals (e.g. "Kundenorientierung", "agile Teams", "Stakeholder-Management").
-2. Determine the ROLE TITLE from the job description using the rule below, then open the summary with it.
-3. Map each requirement to concrete evidence in the candidate's CV. If a requirement has no evidence, DO NOT mention it — never fabricate experience, tools, years, or metrics.
-4. Mirror the job ad's vocabulary verbatim where possible (e.g. if the ad says "LLM-based applications", write "LLM-based applications", not "generative AI solutions"). This is for ATS keyword matching.
-5. Choose the 3 highest-signal keywords for this specific role. These get bolded.
-6. Draft, then cut to fit the character budget.
+2. **Identify the company's industry vertical** (e.g. AdTech, FinTech, LegalTech, HealthTech, Energy, E-Commerce, Logistics, Public Sector, Automotive, etc.) and extract the sector-specific business terms and KPIs that appear in the job ad (e.g. AdTech → ROI/ROAS, CTR, CPM, SmartBid, fraud detection; FinTech → AML, KYC, risk scoring, transaction latency; Energy → grid optimization, demand forecasting, SCADA; LegalTech → contract analysis, compliance automation, e-discovery). Use these terms when there is genuine CV evidence to back them — never insert sector jargon without a real connection.
+3. Determine the ROLE TITLE from the job description using the rule below, then open the summary with it.
+4. Map each requirement to concrete evidence in the candidate's CV. If a requirement has no evidence, DO NOT mention it — never fabricate experience, tools, years, or metrics.
+5. Mirror the job ad's vocabulary verbatim where possible (e.g. if the ad says "LLM-based applications", write "LLM-based applications", not "generative AI solutions"). This is for ATS keyword matching.
+6. Choose the 3 highest-signal keywords for this specific role. These get bolded.
+7. Draft, then cut to fit the character budget.
 
 # ROLE TITLE RULE (mandatory)
 - Strip seniority/level prefixes (Senior, Lead, Principal, Junior, Staff, Head of, Consultant) from the job title.
@@ -148,6 +149,7 @@ Write a single tailored "Professional Summary" block for the top of this candida
 - Copy-pasting the CV's existing summary.
 - Translating tool names (keep "LangGraph", "RAG", "FastAPI" as-is even in German).
 - Mirroring the sentence structure of any example below — the examples teach principles, not a template.
+- Using sector terms (ROI, CTR, AML, SCADA, etc.) as decoration — only use them when the CV evidence directly connects.
 
 # FEW-SHOT EXAMPLES
 These examples show different valid styles. Learn the underlying principles. Do NOT copy their structure, opening phrases, or sentence rhythm.
@@ -203,16 +205,17 @@ Write a tailored motivation letter (Anschreiben / cover letter) for this candida
 
 # HOW TO THINK (do this silently, do NOT output your reasoning)
 1. Read the job description and company research. Identify: company's core product/mission, the role's 3 most critical requirements, the team's likely pain point.
-2. Find the strongest CV evidence for each critical requirement. Pick metrics that map directly to the role's scale or complexity.
-3. Identify ONE differentiator unique to this candidate vs. typical applicants for this role.
-4. Decide the hook: a specific company fact (product, tech stack, recent launch, mission angle) that connects authentically to the candidate's background. If company research is thin, use the most specific signal from the job ad itself (a named system, a stated challenge, a team mission line).
-5. Draft, then cut padding ruthlessly.
+2. **Identify the company's industry vertical** (AdTech, FinTech, LegalTech, HealthTech, Energy, E-Commerce, Logistics, Public Sector, Automotive, etc.) and collect the sector-specific business terms, KPIs, and product concepts that appear in the job ad or company research (examples: AdTech → ROI/ROAS, CTR, CPM, viewability, bid optimization, ad fraud; FinTech → AML, KYC, credit scoring, payment rails, transaction risk; Energy → demand forecasting, grid balancing, SCADA, smart meter analytics; LegalTech → contract analysis, compliance automation, e-discovery, matter management). Weave these terms into the letter wherever the candidate's CV evidence genuinely connects — this shows sector fluency, not keyword stuffing. **Never use a sector term without real CV evidence behind it.**
+3. Find the strongest CV evidence for each critical requirement. Pick metrics that map directly to the role's scale or complexity.
+4. Identify ONE differentiator unique to this candidate vs. typical applicants for this role.
+5. Decide the hook: a specific company fact (product, tech stack, recent launch, mission angle) that connects authentically to the candidate's background. If company research is thin, use the most specific signal from the job ad itself (a named system, a stated challenge, a team mission line).
+6. Draft, then cut padding ruthlessly.
 
 # STRUCTURE (mandatory, 4 paragraphs)
 - **Paragraph 1 — Hook + company connection (2–3 sentences):** Open with the specific company hook from step 4. State the role you are applying for naturally within these sentences. Never open with "I am writing to apply for..." or "With great interest I read your job posting...".
 - **Paragraph 2 — Role fit (3–5 sentences):** Take 2–3 of the role's critical requirements. For each, give one concrete CV achievement with a metric. Use the job ad's exact terminology for ATS and HR recognition. Do not list tools — show outcomes.
 - **Paragraph 3 — Differentiator (2–4 sentences):** One angle that sets this candidate apart for this specific role. Examples of valid differentiators (do not copy these, find the one that fits): city-scale public-sector data context, full-stack ownership from fine-tuning to deployment, hybrid ML+LLM architecture experience, multilingual delivery in a German-speaking team.
-- **Paragraph 4 — Close (2–3 sentences):** State work authorization and location reality (Dortmund-based, open to relocation, work-authorized in Germany). Express specific interest in next steps — never "I look forward to hearing from you". Optionally signal German language progress if relevant to the role.
+- **Paragraph 4 — Close (2–3 sentences):** State work authorization and location reality (Dortmund-based, open to relocation, work-authorized in Germany). Express specific interest in next steps — never "I look forward to hearing from you". **Never mention salary, compensation, Gehaltsvorstellung, or any monetary expectation — not even a range. Never mention German language level, progress, or any language skills.**
 
 # HARD RULES
 - Language: write ONLY in {lang_name}. Zero words in any other language (except proper nouns and tool names like "LangGraph", "AWS", "FastAPI").
@@ -223,6 +226,11 @@ Write a tailored motivation letter (Anschreiben / cover letter) for this candida
 - Sign-off: "Best regards, Veysel Murat Gorken" in English; "Mit freundlichen Grüßen, Veysel Murat Gorken" in German.
 - No markdown formatting. No bullet points. No bolded text. Plain prose only.
 - Tool names stay in original form even in German letters (LangGraph, RAG, FastAPI, PySpark).
+
+# ABSOLUTE PROHIBITIONS — these will cause automatic rejection of the output
+- **NEVER mention salary, compensation, pay, Gehaltsvorstellung, Gehaltswunsch, EUR, or any monetary figure or range.** Salary belongs in the interview, not the cover letter.
+- **NEVER mention German language level, B1/B2/C1, language progress, or any statement about language skills.** This includes phrases like "Mein Deutsch liegt auf B1", "My German is improving", "ich entwickle meine Sprachkenntnisse weiter", or any equivalent.
+- **NEVER use sector jargon (ROI/ROAS, CTR, AML, SCADA, etc.) without direct CV evidence.** Sector fluency is proven by connecting the term to a real achievement — using it as decoration is worse than not using it.
 
 # ANTI-PATTERNS — DO NOT WRITE LIKE THIS
 - "I am writing to express my strong interest in the [Role] position at [Company]." (template opener — instant rejection signal)
@@ -247,7 +255,7 @@ The job description highlights production agentic workflows, LLM fine-tuning, an
 
 What I think I bring beyond the keyword overlap is range across the full vertical — from LoRA fine-tuning, through RAG and agent design, down to FastAPI deployment and Big Data infrastructure on Hadoop and PySpark. Most candidates own one layer well; I have shipped production systems across all of them, which matters when a voice-AI platform fails in unexpected places.
 
-I am based in Dortmund, work-authorized in Germany, and open to relocation to Berlin. My German is at B1 and improving weekly. I would be glad to walk you through the Whisper LoRA work or the agentic pipeline architecture in a first conversation.
+I am based in Dortmund, work-authorized in Germany, and open to relocation to Berlin. I would be glad to walk you through the Whisper LoRA work or the agentic pipeline architecture in a first conversation.
 
 Best regards,
 Veysel Murat Gorken
@@ -262,7 +270,7 @@ In der Stellenanzeige werden hybride ML-Systeme, NLP für strukturierte Geschäf
 
 Was mich für diese Rolle besonders passend macht: ich habe ML- und LLM-Komponenten nicht getrennt gebaut, sondern als ein System, in dem klassische Modelle die Vorhersagen liefern und LLM-Agenten die Erklärung gegenüber Fachbereichen übernehmen. Genau diese Brücke zwischen Modell und Stakeholder fehlt in vielen Data-Science-Teams.
 
-Ich lebe in Dortmund, bin in Deutschland arbeitsberechtigt und für einen Umzug nach München offen. Mein Deutsch liegt auf B1-Niveau und entwickelt sich aktiv weiter. Über ein erstes Gespräch zur Process-Mining-Pipeline oder zur Whisper-Feinabstimmung würde ich mich sehr freuen.
+Ich lebe in Dortmund, bin in Deutschland arbeitsberechtigt und für einen Umzug nach München offen. Über ein erstes Gespräch zur Process-Mining-Pipeline oder zur Whisper-Feinabstimmung würde ich mich sehr freuen.
 
 Mit freundlichen Grüßen,
 Veysel Murat Gorken
@@ -282,3 +290,109 @@ Return ONLY the final motivation letter. No preamble, no explanation, no comment
     except Exception as e:
         print(f"Error generating letter: {e}")
         return "Generation failed."
+
+
+def generate_both(
+    job_desc: str,
+    cv_plain_text: str,
+    cv_text: str,
+    language: str = "EN",
+    draft: str = "",
+    max_chars: int = 680,
+    company_research: str = "",
+    provider: str = "Gemini",
+    api_key: str = "",
+    model_name: str = "gemini-1.5-pro",
+) -> dict:
+    """Single LLM call that returns both CV summary and motivation letter.
+    cv_plain_text: LaTeX-stripped text for the summary.
+    cv_text: raw CV content for the letter."""
+    lang_name = "English" if language == "EN" else "German"
+    safe_low = max(max_chars - 60, max_chars * 9 // 10)
+    draft_block = f"\n\n--- CANDIDATE NOTES ---\n{draft.strip()}" if draft and draft.strip() else ""
+    company_research_block = f"\n\n--- COMPANY RESEARCH ---\n{company_research.strip()}" if company_research and company_research.strip() else ""
+
+    prompt = f"""You are a senior technical recruiter and career coach specializing in the German tech job market (Data Science, AI/ML, Data Engineering). You produce two tailored documents simultaneously for a candidate applying to a specific job.
+
+# STEP 0 — SHARED ANALYSIS (silent, do NOT output)
+1. Identify the company's industry vertical (AdTech, FinTech, LegalTech, HealthTech, Energy, E-Commerce, Logistics, Public Sector, Automotive, etc.).
+2. Extract sector-specific KPIs and business terms from the job ad (AdTech → ROI/ROAS, CTR, CPM, fraud detection; FinTech → AML, KYC, risk scoring; Energy → demand forecasting, SCADA; LegalTech → contract analysis, compliance). Use these terms in BOTH outputs only when the CV has genuine evidence — never as decoration.
+3. Extract the 5–8 most load-bearing requirements from the job description.
+4. Map each requirement to CV evidence. If no evidence exists, do NOT mention it. Never fabricate metrics, tools, or employer names.
+5. Identify the core role title (strip seniority prefix: Senior, Lead, Principal, Junior, Staff, Head of, Consultant).
+
+---
+
+# TASK 1 — CV PROFESSIONAL SUMMARY
+
+Write a single tailored "Professional Summary" block for the top of the candidate's CV. It must pass both an ATS keyword filter AND a 6-second HR skim.
+
+Rules:
+- Language: write ONLY in {lang_name}. Keep tool names as-is (LangGraph, AWS, FastAPI).
+- Length: STRICT MAXIMUM {max_chars} characters total including ** markers and spaces. Aim for {safe_low}–{max_chars - 10}.
+- Open with: "[Core Title] with [N]+ years [brief scope]"
+- Bolding: wrap EXACTLY 3 highest-signal keywords in **double asterisks**. No other markdown.
+- Facts: every claim traceable to the CV. No invented metrics or certifications.
+- Structure: 3–5 sentences, no bullets, no labels like "Summary:".
+- Mirror the job ad's vocabulary verbatim for ATS matching.
+- NEVER use sector jargon without direct CV evidence.
+
+Anti-patterns to avoid: generic openers ("Passionate, results-driven..."), listing tools without outcomes, copying the CV's existing summary.
+
+---
+
+# TASK 2 — MOTIVATION LETTER
+
+Write a tailored motivation letter (Anschreiben / cover letter). It must feel hand-written for this specific company and role.
+
+The letter must answer these three questions in order:
+1. WHY THIS COMPANY — specific to their product, mission, or technical approach.
+2. WHY THIS ROLE — 2–3 job requirements linked to CV evidence with metrics.
+3. WHY THIS CANDIDATE — one differentiator other applicants cannot claim.
+
+Structure (mandatory, 4 paragraphs):
+- Paragraph 1 — Hook + company connection (2–3 sentences): Open with a specific company fact. State the role naturally. Never open with "I am writing to apply for..." or "With great interest I read...".
+- Paragraph 2 — Role fit (3–5 sentences): 2–3 critical requirements mapped to CV achievements with metrics. Use the job ad's exact terminology. Show outcomes, not tool lists.
+- Paragraph 3 — Differentiator (2–4 sentences): One angle that sets this candidate apart (full-stack ownership, domain depth, city-scale public-sector context, hybrid ML+LLM architecture, etc.).
+- Paragraph 4 — Close (2–3 sentences): Work authorization and location. Specific next-step interest. No passive close ("I look forward to hearing from you").
+
+Rules:
+- Language: write ONLY in {lang_name}. Keep tool names as-is.
+- Length: 280–350 words total. Count before finalizing.
+- Salutation: "Dear Hiring Manager," (EN) or "Sehr geehrte Damen und Herren," (DE) — unless a named contact appears in the job ad.
+- Sign-off: "Best regards, Veysel Murat Gorken" (EN) or "Mit freundlichen Grüßen, Veysel Murat Gorken" (DE).
+- No markdown, no bullets, no bold. Plain prose only.
+- NEVER mention salary, compensation, Gehaltsvorstellung, EUR, or any monetary figure.
+- NEVER mention German language level, B1/B2/C1, or language progress.
+- NEVER use sector jargon without direct CV evidence.
+
+Anti-patterns: template openers, generic company praise ("industry leader", "amazing team"), restating the CV, passive close.
+
+---
+
+--- JOB DESCRIPTION ---
+{job_desc}
+
+--- CANDIDATE PROFILE (CV plain text, for summary) ---
+{cv_plain_text}
+
+--- CANDIDATE PROFILE (full CV, for letter) ---
+{cv_text}{company_research_block}{draft_block}
+
+# OUTPUT FORMAT
+Return valid JSON only — no preamble, no markdown code fences:
+{{
+  "summary": "<CV professional summary, max {max_chars} chars, exactly 3 bolded keywords>",
+  "letter": "<full motivation letter, plain prose, 4 paragraphs + salutation + sign-off>"
+}}"""
+
+    try:
+        raw = call_llm(prompt, provider, api_key, model_name, is_json=True)
+        data = json.loads(raw)
+        return {
+            "summary": data.get("summary", ""),
+            "letter": data.get("letter", ""),
+        }
+    except Exception as e:
+        print(f"Error in generate_both: {e}")
+        return {"summary": "", "letter": ""}

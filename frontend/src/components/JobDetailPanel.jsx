@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import {
     updateJobStatus, updateJobDetails, generateLetter,
-    deleteJob, exportLetter, exportCV, generateCVSummary, recompileCV
+    deleteJob, exportLetter, exportCV, generateCVSummary, recompileCV, reanalyzeJob, generateBoth
 } from '../services/api';
 import { AI_MODELS } from '../utils/aiModels';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -145,6 +145,8 @@ export default function JobDetailPanel({
     const [cvMaxChars, setCvMaxChars] = useState(680);
     const [cvMaxCharsInput, setCvMaxCharsInput] = useState('680');
     const [cvCopied, setCvCopied] = useState(false);
+    const [isReanalyzing, setIsReanalyzing] = useState(false);
+    const [bothGenerating, setBothGenerating] = useState(false);
 
     useEffect(() => { setLocalModel(modelName); }, [modelName]);
 
@@ -178,11 +180,46 @@ export default function JobDetailPanel({
         } catch { addToast(t('deleteFailed'), 'error'); }
     };
 
+    const handleReanalyze = async () => {
+        setIsReanalyzing(true);
+        try {
+            const updated = await reanalyzeJob(job.id);
+            onJobUpdated(updated);
+        } catch (err) {
+            const detail = err.response?.data?.detail || err.message || 'Analiz başarısız.';
+            addToast(detail, 'error');
+        } finally {
+            setIsReanalyzing(false);
+        }
+    };
+
+    const handleGenerateBoth = async () => {
+        setBothGenerating(true);
+        setLetter('');
+        setCvSummary('');
+        setCvFullText('');
+        setPdfUrl('');
+        try {
+            const res = await generateBoth(job.id, selectedCvId, language, draft, provider, apiKey, localModel, cvMaxChars);
+            if (res.letter) setLetter(res.letter);
+            if (res.summary) setCvSummary(res.summary);
+            if (res.full_cv) setCvFullText(res.full_cv);
+            if (res.pdf_url) setPdfUrl(`http://localhost:8000${res.pdf_url}?t=${Date.now()}`);
+            onJobUpdated({ ...job, motivation_letter: res.letter, cv_summary: res.summary });
+        } catch (err) {
+            const detail = err.response?.data?.detail || err.message || 'Oluşturma başarısız.';
+            addToast(detail, 'error');
+        } finally {
+            setBothGenerating(false);
+        }
+    };
+
     const handleGenerateLetter = async () => {
         setGenerating(true);
         try {
             const res = await generateLetter(job.id, language, draft, provider, apiKey, localModel);
             setLetter(res.letter);
+            onJobUpdated({ ...job, motivation_letter: res.letter });
         } catch (err) {
             const detail = err.response?.data?.detail || err.message || '';
             addToast(`${t('letterError')} ${detail}`, 'error');
@@ -199,6 +236,7 @@ export default function JobDetailPanel({
             setCvSummary(res.summary);
             setCvFullText(res.full_cv);
             if (res.pdf_url) setPdfUrl(`http://localhost:8000${res.pdf_url}?t=${Date.now()}`);
+            onJobUpdated({ ...job, cv_summary: res.summary });
         } catch (err) {
             const detail = err.response?.data?.detail || err.message || '';
             addToast(detail || 'CV özeti oluşturulamadı.', 'error');
@@ -339,7 +377,19 @@ export default function JobDetailPanel({
                         {job.summary_tr ? (
                             <div className="space-y-2">{renderSummary(job.summary_tr)}</div>
                         ) : (
-                            <p className="text-sm text-slate-400 italic">{t('noAnalysis')}</p>
+                            <div className="flex flex-col gap-2">
+                                <p className="text-sm text-slate-400 italic">{t('noAnalysis')}</p>
+                                {job.description && (
+                                    <button
+                                        onClick={handleReanalyze}
+                                        disabled={isReanalyzing}
+                                        className="self-start flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 disabled:opacity-50 transition-colors"
+                                    >
+                                        <Wand2 className="w-3.5 h-3.5" />
+                                        {isReanalyzing ? 'Analiz ediliyor...' : 'Analiz Et'}
+                                    </button>
+                                )}
+                            </div>
                         )}
                         {job.language_reqs && (
                             <div className="flex flex-wrap gap-2 pt-1">
@@ -529,6 +579,21 @@ export default function JobDetailPanel({
                             ) : (
                                 <><Wand2 className="w-4 h-4" />
                                 {studioMode === 'letter' ? t('createMotivation') : 'CV Özeti Oluştur'}</>
+                            )}
+                        </button>
+
+                        {/* ── Generate Both button ── */}
+                        <button
+                            onClick={handleGenerateBoth}
+                            disabled={bothGenerating || generating || cvGenerating || cvList.length === 0}
+                            className="w-full mt-2 text-sm font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 bg-gradient-to-r from-slate-800 to-indigo-700 hover:from-slate-900 hover:to-indigo-800 text-white shadow-sm"
+                        >
+                            {bothGenerating ? (
+                                <><span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
+                                İkisi oluşturuluyor...</>
+                            ) : (
+                                <><Wand2 className="w-4 h-4" />
+                                Mektup + CV Özeti (tek seferde)</>
                             )}
                         </button>
 
